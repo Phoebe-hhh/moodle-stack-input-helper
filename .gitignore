@@ -1,6 +1,23 @@
-.DS_Store
+# Node.js
 node_modules/
-uploads/
-.env
-.env.*
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Moodle cache/build local files
+moodledata/
+
+# Uploaded files
+recognizer-api/uploads/
+uploads/
