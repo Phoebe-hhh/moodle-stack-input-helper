@@ -19,17 +19,17 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_configtext(
-        'local_stackinputhelper/apiurl',
-        get_string('apiurl', 'local_stackinputhelper'),
-        get_string('apiurl_desc', 'local_stackinputhelper'),
-        'http://localhost:3001/recognize',
-        PARAM_URL
+        'local_stackinputhelper/mathpixappid',
+        get_string('mathpixappid', 'local_stackinputhelper'),
+        get_string('mathpixappid_desc', 'local_stackinputhelper'),
+        '',
+        PARAM_TEXT
     ));
 
     $settings->add(new admin_setting_configpasswordunmask(
-        'local_stackinputhelper/apitoken',
-        get_string('apitoken', 'local_stackinputhelper'),
-        get_string('apitoken_desc', 'local_stackinputhelper'),
+        'local_stackinputhelper/mathpixappkey',
+        get_string('mathpixappkey', 'local_stackinputhelper'),
+        get_string('mathpixappkey_desc', 'local_stackinputhelper'),
         ''
     ));
 

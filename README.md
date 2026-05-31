@@ -5,7 +5,7 @@ Alpha prototype for testing image-based mathematical input support in Moodle + S
 This repository contains:
 
 - `stackinputhelper/`: Moodle local plugin for STACK input assistance
-- `recognizer-api/`: Node.js recognizer API that receives math-expression images and converts OCR LaTeX to STACK-friendly syntax
+- `recognizer-api/`: Legacy/development Node.js recognizer API and regression reference
 
 Current target use:
 
@@ -13,7 +13,18 @@ Current target use:
 2. Trial deployment on the ILAS Nagoya University STACK testing course.
 3. Later cleanup and packaging as a formal Moodle plugin.
 
-## Recognizer API
+## Moodle Plugin Backend
+
+The Moodle plugin now calls Mathpix directly from PHP. A separate Node.js service is no longer required for normal Moodle deployment.
+
+For lab deployment:
+
+1. Copy `stackinputhelper/` to `moodle/local/stackinputhelper`.
+2. Visit `Site administration > Notifications`.
+3. Configure `Mathpix App ID` and `Mathpix App Key` under `Site administration > Plugins > Local plugins > STACK Input Helper`.
+4. Open a STACK question page and test image upload.
+
+## Legacy Recognizer API
 
 ```bash
 cd recognizer-api
@@ -23,7 +34,7 @@ npm test
 node server.js
 ```
 
-Configure the Mathpix credentials in `recognizer-api/.env`.
+The Node.js recognizer is kept for development comparison and regression testing. It is not required by the Moodle plugin runtime.
 
 Do not commit `.env`, `node_modules/`, uploaded images, or Moodle cache files.
 
@@ -41,7 +52,7 @@ Then visit Moodle as an administrator and complete plugin installation from:
 Site administration > Notifications
 ```
 
-Configure the recognizer API URL in:
+Configure Mathpix credentials in:
 
 ```text
 Site administration > Plugins > Local plugins > STACK Input Helper

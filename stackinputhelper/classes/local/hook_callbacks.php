@@ -28,20 +28,25 @@ final class hook_callbacks {
             return;
         }
 
+        if (!get_config('local_stackinputhelper', 'enabled')) {
+            return;
+        }
+
         $config = [
-            'apiurl' => (string)(get_config('local_stackinputhelper', 'apiurl') ?: ''),
-            'apitoken' => (string)(get_config('local_stackinputhelper', 'apitoken') ?: ''),
+            'recognizeUrl' => (new \moodle_url('/local/stackinputhelper/recognize.php'))->out(false),
+            'sessionCreateUrl' => (new \moodle_url('/local/stackinputhelper/session_create.php'))->out(false),
+            'sessionResultUrl' => (new \moodle_url('/local/stackinputhelper/session_result.php'))->out(false),
+            'sesskey' => sesskey(),
+            'enablemobile' => (bool)get_config('local_stackinputhelper', 'enablemobile'),
             'uploadbtn' => 'Upload math image',
             'mobilebtn' => 'Use Phone Camera',
             'uploading' => 'Recognizing...',
             'nofieldfound' => 'No visible STACK input found',
             'recognizefailed' => 'Recognition failed.',
-            'sessionCreateUrl' => 'http://localhost:3001/session/create',
-            'sessionResultBaseUrl' => 'http://localhost:3001/session/',
         ];
 
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $version = '20260422_hook_1';
+        $version = '20260531_php_backend_1';
 
         $html = '
 <script>
