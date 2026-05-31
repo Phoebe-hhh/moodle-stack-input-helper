@@ -48,5 +48,13 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_stackinputhelper/mobilebaseurl',
+        get_string('mobilebaseurl', 'local_stackinputhelper'),
+        get_string('mobilebaseurl_desc', 'local_stackinputhelper'),
+        '',
+        PARAM_URL
+    ));
+
     $ADMIN->add('localplugins', $settings);
 }

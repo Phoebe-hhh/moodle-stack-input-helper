@@ -34,7 +34,7 @@ try {
         throw new moodle_exception('filetoolarge', 'local_stackinputhelper');
     }
 
-    $mimetype = clean_param($_FILES['image']['type'] ?? '', PARAM_MIMETYPE);
+    $mimetype = clean_param($_FILES['image']['type'] ?? '', PARAM_RAW_TRIMMED);
     $allowed = ['image/jpeg', 'image/png', 'image/webp'];
     if (!in_array($mimetype, $allowed, true)) {
         throw new moodle_exception('invalidfiletype', 'local_stackinputhelper');

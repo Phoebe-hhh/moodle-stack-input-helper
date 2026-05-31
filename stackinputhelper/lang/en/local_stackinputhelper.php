@@ -16,6 +16,8 @@ $string['maxfilesize_desc'] = 'Maximum upload image size in MB.';
 
 $string['enablemobile'] = 'Enable mobile upload';
 $string['enablemobile_desc'] = 'Allow users to upload mathematical expression images from a mobile device using a QR code.';
+$string['mobilebaseurl'] = 'Mobile public base URL';
+$string['mobilebaseurl_desc'] = 'Optional Moodle base URL that mobile devices can open, for example http://192.168.1.20:8000. Leave empty to use the Moodle site URL.';
 
 $string['uploadbtn'] = 'Upload math image';
 $string['mobileuploadbtn'] = 'Mobile Math Upload';

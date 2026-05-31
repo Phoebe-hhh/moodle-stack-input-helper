@@ -38,11 +38,17 @@ try {
     $DB->insert_record('local_stackinputhelper_sess', $record);
 
     $mobileurl = new moodle_url('/local/stackinputhelper/mobile.php', ['session' => $sessionid]);
+    $mobileurlout = $mobileurl->out(false);
+
+    $mobilebaseurl = trim((string)get_config('local_stackinputhelper', 'mobilebaseurl'));
+    if ($mobilebaseurl !== '') {
+        $mobileurlout = rtrim($mobilebaseurl, '/') . '/local/stackinputhelper/mobile.php?session=' . rawurlencode($sessionid);
+    }
 
     echo json_encode([
         'success' => true,
         'session_id' => $sessionid,
-        'mobile_url' => $mobileurl->out(false),
+        'mobile_url' => $mobileurlout,
         'expires_at' => $record->expiresat,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
