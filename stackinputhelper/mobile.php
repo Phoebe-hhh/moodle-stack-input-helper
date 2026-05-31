@@ -21,9 +21,13 @@ echo $OUTPUT->header();
 ?>
 <div class="local-stackinputhelper-mobile">
     <p><?php echo s(get_string('mobileuploadinstructions', 'local_stackinputhelper')); ?></p>
-    <input id="local-stackinputhelper-mobile-file" type="file" accept="image/*" capture="environment">
-    <button id="local-stackinputhelper-mobile-submit" type="button" class="btn btn-primary">
-        <?php echo s(get_string('uploadbtn', 'local_stackinputhelper')); ?>
+    <input id="local-stackinputhelper-mobile-file" type="file" accept="image/*" capture="environment" style="display: none;">
+    <button id="local-stackinputhelper-mobile-camera" type="button" class="btn btn-secondary">
+        <?php echo s(get_string('takephoto', 'local_stackinputhelper')); ?>
+    </button>
+    <span id="local-stackinputhelper-mobile-filename" style="display: inline-block; margin: 0 0.75rem;"></span>
+    <button id="local-stackinputhelper-mobile-submit" type="button" class="btn btn-primary" disabled>
+        <?php echo s(get_string('usethisphoto', 'local_stackinputhelper')); ?>
     </button>
     <div id="local-stackinputhelper-mobile-status" style="margin-top: 1rem;"></div>
     <pre id="local-stackinputhelper-mobile-result" style="margin-top: 1rem; display: none;"></pre>
@@ -31,12 +35,26 @@ echo $OUTPUT->header();
 <script>
 (function() {
     const fileInput = document.getElementById('local-stackinputhelper-mobile-file');
+    const cameraBtn = document.getElementById('local-stackinputhelper-mobile-camera');
+    const filename = document.getElementById('local-stackinputhelper-mobile-filename');
     const submitBtn = document.getElementById('local-stackinputhelper-mobile-submit');
     const status = document.getElementById('local-stackinputhelper-mobile-status');
     const result = document.getElementById('local-stackinputhelper-mobile-result');
     const uploadUrl = <?php echo json_encode((new moodle_url('/local/stackinputhelper/mobile_upload.php'))->out(false)); ?>;
     const sessionId = <?php echo json_encode($sessionid); ?>;
     const sesskey = <?php echo json_encode(sesskey()); ?>;
+
+    cameraBtn.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function() {
+        const file = fileInput.files && fileInput.files[0];
+        filename.textContent = file ? file.name : '';
+        submitBtn.disabled = !file;
+        status.textContent = '';
+        result.style.display = 'none';
+    });
 
     submitBtn.addEventListener('click', async function() {
         const file = fileInput.files && fileInput.files[0];
@@ -46,6 +64,7 @@ echo $OUTPUT->header();
         }
 
         const oldText = submitBtn.textContent;
+        cameraBtn.disabled = true;
         submitBtn.disabled = true;
         submitBtn.textContent = <?php echo json_encode(get_string('uploading', 'local_stackinputhelper')); ?>;
         status.textContent = <?php echo json_encode(get_string('uploading', 'local_stackinputhelper')); ?>;
@@ -74,6 +93,7 @@ echo $OUTPUT->header();
         } catch (error) {
             status.textContent = <?php echo json_encode(get_string('recognizefailed', 'local_stackinputhelper')); ?> + ' ' + error.message;
         } finally {
+            cameraBtn.disabled = false;
             submitBtn.disabled = false;
             submitBtn.textContent = oldText;
         }
@@ -82,4 +102,3 @@ echo $OUTPUT->header();
 </script>
 <?php
 echo $OUTPUT->footer();
-
