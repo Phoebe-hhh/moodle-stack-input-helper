@@ -45,10 +45,18 @@ try {
         $mobileurlout = rtrim($mobilebaseurl, '/') . '/local/stackinputhelper/mobile.php?session=' . rawurlencode($sessionid);
     }
 
+    $warning = '';
+    $mobilehost = strtolower((string)parse_url($mobileurlout, PHP_URL_HOST));
+    if ($mobilehost === 'localhost' || $mobilehost === '127.0.0.1' || $mobilehost === '::1') {
+        $warning = 'This QR code uses localhost, which only works on this computer. '
+            . 'For phone upload, open Moodle using a network-accessible site URL or set Mobile public base URL in the plugin settings.';
+    }
+
     echo json_encode([
         'success' => true,
         'session_id' => $sessionid,
         'mobile_url' => $mobileurlout,
+        'mobile_url_warning' => $warning,
         'expires_at' => $record->expiresat,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {

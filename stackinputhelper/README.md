@@ -47,6 +47,21 @@ Optional settings:
 - Enable/disable the helper.
 - Maximum upload image size.
 - Enable/disable mobile upload.
+- Mobile public base URL, only needed when the Moodle site URL is not reachable from phones.
+
+## Mobile Upload URL
+
+For normal Moodle deployments, no network-specific setup is required. The mobile QR code uses the Moodle site URL configured in `$CFG->wwwroot`, for example a public or campus URL such as `https://stack.example.edu`.
+
+Phones can only open the QR code if they can reach that Moodle URL. If a site is opened as `http://localhost:8000`, the phone will also see `localhost` and will try to connect to itself, not to the teacher's computer. In that case the plugin shows a warning instead of silently producing an unusable QR code.
+
+For local development, use one of these options:
+
+- Open Moodle through a hostname or IP address that the phone can reach on the same network.
+- Set `Mobile public base URL` in the plugin settings to that reachable URL.
+- Use a tunnel or reverse proxy URL if the phone is not on the same network.
+
+For production Moodle plugin use, administrators normally only need to install the plugin and enter the Mathpix credentials, because the Moodle site's own URL is already stable and reachable.
 
 ## Lab Deployment Notes
 
@@ -98,4 +113,3 @@ Current version:
 ```text
 0.2.0-alpha
 ```
-

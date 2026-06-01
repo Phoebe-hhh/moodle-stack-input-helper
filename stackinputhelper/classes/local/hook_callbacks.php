@@ -46,7 +46,7 @@ final class hook_callbacks {
         ];
 
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $version = '20260531_php_backend_3';
+        $version = '20260601_mobile_url_warning_1';
 
         $html = '
 <script>
