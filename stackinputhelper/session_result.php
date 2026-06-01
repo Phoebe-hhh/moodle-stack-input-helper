@@ -31,6 +31,7 @@ try {
         'raw_latex' => $record->rawlatex,
         'stack' => $record->stack,
         'text' => $record->resulttext,
+        'updated_at' => (int)$record->timemodified,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     http_response_code(400);
