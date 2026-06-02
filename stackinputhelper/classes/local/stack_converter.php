@@ -75,6 +75,7 @@ final class stack_converter {
         }
 
         foreach (['sin', 'cos', 'tan', 'log', 'ln'] as $fn) {
+            $s = preg_replace('/\\\\' . $fn . '\s*\^\s*(?:\{\s*([^{}]+)\s*\}|\(\s*([^()]+)\s*\))\s*([a-zA-Z0-9]+)/', $fn . '($3)^($1$2)', $s);
             $s = preg_replace('/\\\\' . $fn . '\s*\{([^{}]+)\}/', $fn . '($1)', $s);
             $s = preg_replace('/\\\\' . $fn . '\s+([a-zA-Z0-9]+)/', $fn . '($1)', $s);
         }
@@ -151,6 +152,21 @@ final class stack_converter {
             return '';
         }
 
+        $prefix = '';
+        $prefixpos = strpos($input, $match[0]);
+        if ($prefixpos !== false) {
+            $prefix = substr($input, 0, $prefixpos);
+            $prefix = preg_replace('/\\\\left\s*\\\\?\{\s*$/', '', $prefix);
+            $prefix = preg_replace('/\\\\left(?![a-zA-Z])/', '', $prefix);
+            $prefix = str_replace(['\\{', '{'], '', $prefix);
+            $prefix = trim($prefix);
+            if ($prefix !== '' && strpos($prefix, '=') !== false) {
+                $prefix = self::normalize($prefix);
+            } else {
+                $prefix = '';
+            }
+        }
+
         $branches = [];
         foreach (preg_split('/\\\\\\\\/', trim($match[2])) as $row) {
             $row = trim($row);
@@ -194,7 +210,7 @@ final class stack_converter {
             $result = 'if ' . $branches[$i]['condition'] . ' then ' . $branches[$i]['expression'] . ' else ' . $result;
         }
 
-        return $result;
+        return $prefix . $result;
     }
 
     private static function normalize_absolute(string $input): string {
