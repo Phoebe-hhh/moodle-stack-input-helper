@@ -15,7 +15,19 @@ The plugin now calls Mathpix directly from Moodle PHP. A separate Node.js servic
 
 ## Installation
 
-Copy this folder to:
+Install a zip whose root folder is exactly:
+
+```text
+stackinputhelper/
+```
+
+from:
+
+```text
+Site administration > Plugins > Install plugins
+```
+
+Alternatively, copy this folder to:
 
 ```text
 moodle/local/stackinputhelper
@@ -111,5 +123,5 @@ The legacy `recognizer-api/` directory in the repository is retained for develop
 Current version:
 
 ```text
-0.2.0-alpha
+0.2.7-alpha
 ```

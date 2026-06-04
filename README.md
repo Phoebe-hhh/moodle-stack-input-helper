@@ -1,6 +1,6 @@
 # STACK Input Helper
 
-Alpha prototype for testing image-based mathematical input support in Moodle + STACK.
+Alpha Moodle local plugin for testing image-based mathematical input support in Moodle + STACK.
 
 This repository contains:
 
@@ -19,10 +19,13 @@ The Moodle plugin now calls Mathpix directly from PHP. A separate Node.js servic
 
 For lab deployment:
 
-1. Copy `stackinputhelper/` to `moodle/local/stackinputhelper`.
-2. Visit `Site administration > Notifications`.
-3. Configure `Mathpix App ID` and `Mathpix App Key` under `Site administration > Plugins > Local plugins > STACK Input Helper`.
-4. Open a STACK question page and test image upload.
+1. Create or use a zip whose root folder is exactly `stackinputhelper/`.
+2. Install it from `Site administration > Plugins > Install plugins`, or copy `stackinputhelper/` to `moodle/local/stackinputhelper`.
+3. Visit `Site administration > Notifications` and complete the database upgrade.
+4. Configure `Mathpix App ID` and `Mathpix App Key` under `Site administration > Plugins > Local plugins > STACK Input Helper`.
+5. Open a STACK question page and test image upload.
+
+Do not upload GitHub's full repository download zip directly to Moodle, because that zip contains this README and the legacy `recognizer-api/` folder. Moodle should receive only the `stackinputhelper/` plugin folder.
 
 ## Legacy Recognizer API
 
