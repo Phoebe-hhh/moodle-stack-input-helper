@@ -123,5 +123,5 @@ The legacy `recognizer-api/` directory in the repository is retained for develop
 Current version:
 
 ```text
-0.2.7-alpha
+0.2.8-alpha
 ```
