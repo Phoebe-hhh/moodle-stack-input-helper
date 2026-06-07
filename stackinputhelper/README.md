@@ -4,14 +4,35 @@ STACK Input Helper is a Moodle local plugin that adds image-based mathematical e
 
 The plugin now calls Mathpix directly from Moodle PHP. A separate Node.js service, external recognizer API, port `3001`, `pm2`, or `systemd` process is not required for normal deployment.
 
+The current interaction is designed as a human-in-the-loop confirmation step. The plugin recognizes the full image, displays candidate lines, recommends the final line by default, and lets the student confirm or refine the answer before insertion.
+
 ## Features
 
 - Adds an upload button near visible STACK answer inputs.
 - Sends uploaded images from Moodle PHP to Mathpix.
+- Displays multi-line recognition results instead of immediately submitting a single OCR result.
+- Selects the final recognized line as the recommended answer by default.
+- Lets users choose a different line, drag-select part of a line, or edit the STACK preview manually.
+- Preserves surrounding Japanese/English text in the review display while converting only the selected mathematical answer to STACK syntax.
 - Converts Mathpix LaTeX output to STACK/Maxima-friendly syntax.
-- Inserts the recognized STACK expression into the answer field.
+- Inserts only the confirmed STACK expression into the answer field.
 - Supports QR-code mobile upload using a Moodle-managed temporary session.
 - Stores Mathpix App ID and App Key in Moodle admin settings, not in browser JavaScript.
+
+## Recognition Review Workflow
+
+When a student uploads an image containing several lines, for example:
+
+```text
+x^2 + 2x + 1 = 0
+(x + 1)^2 = 0
+x + 1 = 0
+x = -1
+```
+
+the plugin displays each recognized line separately and marks the final line as the recommended answer. The student can select another line if needed. The selected line is then converted to STACK syntax in the editable preview before insertion.
+
+If the OCR result contains natural language such as `Therefore, x = -1`, the review display keeps the text visible so the student can understand the recognition result. The STACK preview extracts the mathematical part, for example `x=-1`.
 
 ## Installation
 

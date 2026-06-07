@@ -2,6 +2,8 @@
 
 Alpha Moodle local plugin for testing image-based mathematical input support in Moodle + STACK.
 
+The current demo uses a human-in-the-loop workflow: Mathpix recognizes the whole image, the plugin displays the recognized result by line, the last line is recommended by default, and the student confirms or edits the expression before it is inserted into the STACK answer field.
+
 This repository contains:
 
 - `stackinputhelper/`: Moodle local plugin for STACK input assistance
@@ -12,6 +14,18 @@ Current target use:
 1. Local development and regression testing.
 2. Trial deployment on the ILAS Nagoya University STACK testing course.
 3. Later cleanup and packaging as a formal Moodle plugin.
+
+## Current Demo Workflow
+
+1. Upload a handwritten math image from the browser, or scan the QR code and upload from a phone.
+2. Moodle sends the image to Mathpix from the PHP backend.
+3. The recognized LaTeX is split into candidate lines.
+4. The UI shows the original math/text result for review.
+5. The last line is selected as the recommended answer by default.
+6. The student can choose another line, drag-select part of a line, or edit the STACK preview manually.
+7. Only the confirmed selection is converted to STACK/Maxima syntax and inserted into the answer box.
+
+This is intended to reduce accidental submission of intermediate working when a student photographs a multi-line solution.
 
 ## Moodle Plugin Backend
 
@@ -71,3 +85,10 @@ npm test
 ```
 
 The test coverage currently includes constants, inequalities, sets and intervals, absolute values, limits, derivatives, integrals, sums, products, vectors, matrices, determinants, and piecewise functions.
+
+For Moodle-side development, also check:
+
+- `stackinputhelper/classes/local/stack_converter.php`
+- `stackinputhelper/classes/local/mathpix_client.php`
+- `stackinputhelper/amd/src/main.js`
+- `stackinputhelper/amd/build/main.min.js`
