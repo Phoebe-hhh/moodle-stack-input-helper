@@ -58,6 +58,7 @@ try {
         'raw_latex' => $result['raw_latex'],
         'stack' => $result['stack'],
         'text' => $result['text'],
+        'lines' => $result['lines'],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {
     http_response_code(400);

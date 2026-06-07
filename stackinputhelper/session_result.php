@@ -31,6 +31,7 @@ try {
         'raw_latex' => $record->rawlatex,
         'stack' => $record->stack,
         'text' => $record->resulttext,
+        'lines' => \local_stackinputhelper\local\mathpix_client::build_lines((string)$record->rawlatex),
         'updated_at' => (int)$record->timemodified,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $error) {

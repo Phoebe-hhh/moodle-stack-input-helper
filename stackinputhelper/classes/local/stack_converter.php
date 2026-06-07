@@ -4,6 +4,19 @@ namespace local_stackinputhelper\local;
 defined('MOODLE_INTERNAL') || die();
 
 final class stack_converter {
+    public static function extract_math(string $input): string {
+        return self::extract_math_candidate($input);
+    }
+
+    public static function normalize_selection(string $input): string {
+        $candidate = self::extract_math_candidate($input);
+        if ($candidate === '') {
+            return '';
+        }
+
+        return self::normalize($candidate);
+    }
+
     public static function normalize(string $input): string {
         $s = trim($input);
 
@@ -125,6 +138,63 @@ final class stack_converter {
         $s = self::beautify($s);
 
         return trim($s);
+    }
+
+    private static function extract_math_candidate(string $input): string {
+        $s = trim($input);
+        if ($s === '') {
+            return '';
+        }
+
+        $s = str_replace(['−', '–', '—', '＝'], ['-', '-', '-', '='], $s);
+        $s = preg_replace('/\\\\text\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/(?<!\\\\)\btext\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/\\\\mathrm\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/\s+/', ' ', $s);
+
+        if (preg_match('/\$(.+?)\$/u', $s, $match)) {
+            return trim($match[1]);
+        }
+
+        if (preg_match('/\\\\\((.+?)\\\\\)/u', $s, $match) || preg_match('/\\\\\[(.+?)\\\\\]/u', $s, $match)) {
+            return trim($match[1]);
+        }
+
+        $frac = '\\\\frac\s*\{[^{}]+\}\s*\{[^{}]+\}';
+        if (preg_match('/(?<![A-Za-z])([A-Za-z](?![A-Za-z])\s*=\s*' . $frac . ')/u', $s, $match)) {
+            return trim($match[1]);
+        }
+        if (preg_match('/(' . $frac . ')/u', $s, $match)) {
+            return trim($match[1]);
+        }
+
+        $atom = '(?:\\\\[a-zA-Z]+(?:\s*\{[^{}]*\}){0,2}|\([^()]+\)(?:\s*\^\s*(?:\{[^{}]+\}|[A-Za-z0-9]))?|[A-Za-z](?![A-Za-z])(?:\s*\^\s*(?:\{[^{}]+\}|[A-Za-z0-9]))?|\d+(?:\.\d+)?|[+\-*\/.])';
+        $equation = '/(?<![A-Za-z])' . $atom . '(?:\s*' . $atom . ')*\s*(?:=|<=|>=|#|<|>)\s*' . $atom . '(?:\s*' . $atom . ')*/u';
+        if (preg_match_all($equation, $s, $matches) && !empty($matches[0])) {
+            usort($matches[0], static function($a, $b) {
+                return strlen($b) <=> strlen($a);
+            });
+            return trim($matches[0][0]);
+        }
+
+        $expression = '/' . $atom . '(?:\s*' . $atom . ')+/u';
+        if (preg_match_all($expression, $s, $matches) && !empty($matches[0])) {
+            $candidates = array_values(array_filter($matches[0], static function($value) {
+                return preg_match('/(?:\d|[+\-*\/^]|\\\\frac|\\\\sqrt)/u', $value);
+            }));
+            if ($candidates) {
+                usort($candidates, static function($a, $b) {
+                    return strlen($b) <=> strlen($a);
+                });
+                return trim($candidates[0]);
+            }
+        }
+
+        if (preg_match('/[=+\-*\/^]|\d|\\\\frac|\\\\sqrt/u', $s)) {
+            return $s;
+        }
+
+        return '';
     }
 
     private static function normalize_matrix(string $input): string {
