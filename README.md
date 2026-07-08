@@ -7,11 +7,10 @@ The current demo uses a human-in-the-loop workflow: Mathpix recognizes the whole
 This repository contains:
 
 - `stackinputhelper/`: Moodle local plugin for STACK input assistance
-- `recognizer-api/`: Legacy/development Node.js recognizer API and regression reference
 
 Current target use:
 
-1. Local development and regression testing.
+1. Local development and smoke testing.
 2. Trial deployment on the ILAS Nagoya University STACK testing course.
 3. Later cleanup and packaging as a formal Moodle plugin.
 
@@ -39,19 +38,7 @@ For lab deployment:
 4. Configure `Mathpix App ID` and `Mathpix App Key` under `Site administration > Plugins > Local plugins > STACK Input Helper`.
 5. Open a STACK question page and test image upload.
 
-Do not upload GitHub's full repository download zip directly to Moodle, because that zip contains this README and the legacy `recognizer-api/` folder. Moodle should receive only the `stackinputhelper/` plugin folder.
-
-## Legacy Recognizer API
-
-```bash
-cd recognizer-api
-npm install
-cp .env.example .env
-npm test
-node server.js
-```
-
-The Node.js recognizer is kept for development comparison and regression testing. It is not required by the Moodle plugin runtime.
+Do not upload GitHub's full repository download zip directly to Moodle, because Moodle should receive only the `stackinputhelper/` plugin folder.
 
 Do not commit `.env`, `node_modules/`, uploaded images, or Moodle cache files.
 
@@ -75,18 +62,9 @@ Configure Mathpix credentials in:
 Site administration > Plugins > Local plugins > STACK Input Helper
 ```
 
-## Testing
+## Development Checks
 
-The recognizer API includes regression tests for the current OCR-to-STACK conversion rules:
-
-```bash
-cd recognizer-api
-npm test
-```
-
-The test coverage currently includes constants, inequalities, sets and intervals, absolute values, limits, derivatives, integrals, sums, products, vectors, matrices, determinants, and piecewise functions.
-
-For Moodle-side development, also check:
+For Moodle-side development and smoke testing, check:
 
 - `stackinputhelper/classes/local/stack_converter.php`
 - `stackinputhelper/classes/local/mathpix_client.php`

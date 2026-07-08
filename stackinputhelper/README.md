@@ -137,8 +137,6 @@ The browser script currently loads:
 amd/build/main.min.js
 ```
 
-The legacy `recognizer-api/` directory in the repository is retained for development comparison and regression testing, but it is no longer required for Moodle deployment.
-
 ## Version
 
 Current version:
