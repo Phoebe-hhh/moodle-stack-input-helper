@@ -96,7 +96,14 @@ final class mathpix_client {
         $multiline = self::extract_multiline_body($normalized);
         if ($multiline !== null) {
             $parts = preg_split('/(?:\n+|\\\\\\\\)/', $multiline);
-        } else if (preg_match('/\\\\begin\{(?:cases|pmatrix|bmatrix|matrix)\}/', $normalized)
+        } else if (preg_match_all('/\\\\begin\{(?:pmatrix|bmatrix|matrix|vmatrix)\}/', $normalized) > 1) {
+            $marked = preg_replace(
+                '/(\\\\end\{(?:pmatrix|bmatrix|matrix|vmatrix)\})\s*\n+\s*(?=\\\\begin\{(?:pmatrix|bmatrix|matrix|vmatrix)\})/',
+                '$1__STACKINPUTHELPER_MATRIX_SPLIT__',
+                $normalized
+            );
+            $parts = explode('__STACKINPUTHELPER_MATRIX_SPLIT__', $marked);
+        } else if (preg_match('/\\\\begin\{(?:cases|pmatrix|bmatrix|matrix|vmatrix)\}/', $normalized)
                 || preg_match('/\\\\left\s*\\\\?[({\[]?\s*\\\\begin\{array\}/', $normalized)) {
             $parts = [$normalized];
         } else {

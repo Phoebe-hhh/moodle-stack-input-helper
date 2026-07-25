@@ -60,10 +60,17 @@ final class stack_converter {
             $s = preg_replace('/\\\\\s*' . preg_quote($command, '/') . '/', '\\' . $command, $s);
         }
 
+        $greekcommands = '(?:alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|rho|tau|phi|psi|omega)';
+        $s = preg_replace(
+            '/(\\\\' . $greekcommands . ')\s*(?=\\\\' . $greekcommands . '\b)/',
+            '$1*',
+            $s
+        );
+
         $s = preg_replace('/\\\\vec\s*\{\s*([a-zA-Z])\s*\}\s*\\\\cdot\s*\\\\vec\s*\{\s*([a-zA-Z])\s*\}/', '$1.$2', $s);
         $s = preg_replace('/\\\\vec\s*\{\s*([a-zA-Z])\s*\}/', '$1', $s);
 
-        $s = str_replace(['\\cdot', '\\times', '\\div', '÷'], ['*', '*', '/', '/'], $s);
+        $s = str_replace(['\\cdot', '\\times', '×', '\\div', '÷'], ['*', '*', '*', '/', '/'], $s);
         $s = str_replace(['\\geqslant', '\\geq', '≥'], '>=', $s);
         $s = str_replace(['\\leqslant', '\\leq', '≤'], '<=', $s);
         $s = str_replace(['\\neq', '\\ne'], '#', $s);
@@ -86,16 +93,21 @@ final class stack_converter {
         $s = str_replace(['\\,', '\\!', '\\;', '\\:', '\\ '], '', $s);
         $s = preg_replace('/\^\{([^{}]+)\}/', '^($1)', $s);
 
-        $s = preg_replace('/\\\\binom\s*\{([^{}]+)\}\s*\{([^{}]+)\}/', 'matrix([$1],[$2])', $s);
+        $s = preg_replace('/\\\\binom\s*\{([^{}]+)\}\s*\{([^{}]+)\}/', 'binomial($1,$2)', $s);
 
         $s = self::normalize_inverse_trig($s);
         $s = preg_replace('/e\^\(([^()]+)\)/', '%e^($1)', $s);
         $s = preg_replace('/e\^([a-zA-Z0-9]+)/', '%e^$1', $s);
 
+        $s = preg_replace('/\\\\log\s*_\s*\{([^{}]+)\}\s*\(([^()]*)\)/', '(log($2)/log($1))', $s);
         $s = preg_replace('/\\\\log\s*_\s*\{([^{}]+)\}\s*\{([^{}]+)\}/', '(log($2)/log($1))', $s);
         $s = preg_replace('/\\\\log\s*_\s*\{([^{}]+)\}\s*([a-zA-Z0-9]+)/', '(log($2)/log($1))', $s);
         $s = preg_replace('/\\\\log\s*_\s*([a-zA-Z0-9]+)\s*\{([^{}]+)\}/', '(log($2)/log($1))', $s);
         $s = preg_replace('/\\\\log\s*_\s*([a-zA-Z0-9]+)\s*([a-zA-Z0-9]+)/', '(log($2)/log($1))', $s);
+
+        // Capture the differential before function normalization can consume
+        // a compact tail such as "\\sin x\\,dx" as one function argument.
+        $s = self::normalize_integral($s);
 
         foreach (['sin', 'cos', 'tan', 'log', 'ln'] as $fn) {
             $s = preg_replace('/\\\\' . $fn . '\s*\{([^{}]+)\}/', $fn . '($1)', $s);
@@ -103,7 +115,6 @@ final class stack_converter {
         }
 
         $s = self::normalize_derivative($s);
-        $s = self::normalize_integral($s);
         $s = self::normalize_sum_product($s);
         $s = self::normalize_fractions_roots($s);
         $s = self::normalize_function_powers($s);
@@ -125,6 +136,16 @@ final class stack_converter {
         $s = preg_replace('/([a-zA-Z])\s+([a-zA-Z])/', '$1*$2', $s);
         $s = preg_replace('/(\d)\s+([a-zA-Z])/', '$1*$2', $s);
         $s = preg_replace('/\s+/', '', $s);
+
+        // Restore set/interval placeholders before splitting unknown letter
+        // sequences into implicit products. Otherwise words such as INTERVAL
+        // are transformed into I*N*T*E*R*V*A*L and can no longer be restored.
+        $s = preg_replace('/__ALL__([a-zA-Z])__IN__([A-Z])__/', '$1 in $2', $s);
+        $s = preg_replace(
+            '/__INTERVAL__([a-zA-Z])__([^_]+)__([^_]+)__/',
+            '$2<=$1 and $1<=$3',
+            $s
+        );
         $s = self::normalize_variable_products($s);
 
         $s = preg_replace('/\\\\pi\b/', '%pi', $s);
@@ -203,6 +224,10 @@ final class stack_converter {
             return trim($match[1]);
         }
 
+        if (preg_match('/(?<![A-Za-z])([A-Za-z]\s*=\s*[^,\s=]+\s*,\s*[^,\s=]+)/u', $s, $match)) {
+            return trim($match[1]);
+        }
+
         $fraction = self::extract_first_fraction($s);
         if ($fraction !== null) {
             $prefix = substr($s, 0, $fraction['start']);
@@ -278,12 +303,12 @@ final class stack_converter {
     }
 
     private static function normalize_matrix(string $input): string {
-        if (!preg_match('/\\\\begin\{(?:array|pmatrix|bmatrix|matrix)\}(?:\{[^}]*\})?([\s\S]*?)\\\\end\{(?:array|pmatrix|bmatrix|matrix)\}/', $input, $match)) {
+        if (!preg_match('/\\\\begin\{(array|pmatrix|bmatrix|matrix|vmatrix)\}(?:\{[^}]*\})?([\s\S]*?)\\\\end\{\1\}/', $input, $match)) {
             return '';
         }
 
         $rows = [];
-        foreach (preg_split('/\\\\\\\\/', trim($match[1])) as $row) {
+        foreach (preg_split('/\\\\\\\\/', trim($match[2])) as $row) {
             $row = trim($row);
             if ($row === '') {
                 continue;
@@ -297,7 +322,12 @@ final class stack_converter {
             $rows[] = '[' . implode(',', $columns) . ']';
         }
 
-        return $rows ? 'matrix(' . implode(',', $rows) . ')' : '';
+        if (!$rows) {
+            return '';
+        }
+
+        $matrix = 'matrix(' . implode(',', $rows) . ')';
+        return $match[1] === 'vmatrix' ? 'determinant(' . $matrix . ')' : $matrix;
     }
 
     private static function normalize_piecewise(string $input): string {
@@ -432,26 +462,28 @@ final class stack_converter {
 
     private static function normalize_integral(string $input): string {
         $output = preg_replace_callback(
-            '/\\\\int\s*_\s*\{\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\))\s*(.+?)\s*d\s*([a-zA-Z])\s*$/',
+            '/\\\\int\s*_\s*\{\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\))\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
             static function($m) {
                 $upper = $m[2] ?: $m[3];
-                return 'int(' . trim($m[4]) . ',' . trim($m[5]) . ',' . trim($m[1]) . ',' . trim($upper) . ')';
+                $integrand = ltrim(trim($m[4]), '*');
+                return 'int(' . $integrand . ',' . trim($m[5]) . ',' . trim($m[1]) . ',' . trim($upper) . ')';
             },
             $input
         );
 
         $output = preg_replace_callback(
-            '/\\\\int\s*_\s*([A-Za-z0-9.+-]+)\s*\^\s*([A-Za-z0-9.+-]+)\s*(.+?)\s*d\s*([a-zA-Z])\s*$/',
+            '/\\\\int\s*_\s*([A-Za-z0-9.+-]+)\s*\^\s*([A-Za-z0-9.+-]+)\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
             static function($m) {
-                return 'int(' . trim($m[3]) . ',' . trim($m[4]) . ',' . trim($m[1]) . ',' . trim($m[2]) . ')';
+                $integrand = ltrim(trim($m[3]), '*');
+                return 'int(' . $integrand . ',' . trim($m[4]) . ',' . trim($m[1]) . ',' . trim($m[2]) . ')';
             },
             $output
         );
 
         return preg_replace_callback(
-            '/\\\\int\s*(.+?)\s*d\s*([a-zA-Z])\s*$/',
+            '/\\\\int\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
             static function($m) {
-                return 'int(' . trim($m[1]) . ',' . trim($m[2]) . ')';
+                return 'int(' . ltrim(trim($m[1]), '*') . ',' . trim($m[2]) . ')';
             },
             $output
         );
@@ -547,7 +579,7 @@ final class stack_converter {
             'omega', 'phi', 'psi', 'rho', 'tau', 'epsilon', 'inf', 'minf', 'and', 'not',
             'then', 'else', 'in', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'ln',
             'sqrt', 'exp', 'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix',
-            'determinant', 'pi'];
+            'determinant', 'binomial', 'pi'];
 
         return preg_replace_callback('/[A-Za-z]{2,}/', static function($m) use ($identifiers) {
             return in_array(strtolower($m[0]), $identifiers, true)
@@ -593,7 +625,7 @@ final class stack_converter {
 
     private static function protect_functions(string $input): string {
         $functions = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'ln', 'sqrt', 'exp',
-            'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix', 'determinant'];
+            'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix', 'determinant', 'binomial'];
 
         return preg_replace_callback('/([a-zA-Z]+)\(/', static function($m) use ($functions) {
             return in_array($m[1], $functions, true) ? $m[0] : $m[1] . '*(';
