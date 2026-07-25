@@ -23,6 +23,7 @@
         recognizefailed: 'Recognition failed.',
         recognizedresults: 'Recognized results',
         selectanswer: 'Select the answer to insert into STACK:',
+        selectpart: 'Select part:',
         recommendedanswer: 'Recommended answer',
         stackpreview: 'STACK input preview:',
         insertanswer: 'Insert answer',
@@ -549,18 +550,28 @@
                     if (command === '\\frac') {
                         const parsed = parseLatexFraction(source, i + command.length);
                         if (parsed) {
-                            tokens.push({
-                                latex: source.slice(i, parsed.end),
-                                display: '(' + parsed.numerator + ')/(' + parsed.denominator + ')'
-                            });
+                            // Use STACK-compatible linear punctuation around the recursively
+                            // tokenized operands. This keeps the whole fraction selectable while
+                            // also allowing a user to pick just one symbol from either operand.
+                            tokens.push({latex: '(', display: '('});
+                            tokens.push(...latexTokens(parsed.numerator));
+                            tokens.push({latex: ')/(', display: ')/('});
+                            tokens.push(...latexTokens(parsed.denominator));
+                            tokens.push({latex: ')', display: ')'});
                             i = parsed.end - 1;
                             continue;
                         }
                     }
+                    const commandDisplay = {
+                        '\\cdot': '·', '\\times': '×', '\\div': '÷', '\\pi': 'π',
+                        '\\infty': '∞', '\\rightarrow': '→', '\\longrightarrow': '→',
+                        '\\to': '→', '\\sum': 'Σ', '\\prod': '∏', '\\int': '∫',
+                        '\\sqrt': '√', '\\partial': '∂', '\\leq': '≤', '\\leqslant': '≤',
+                        '\\geq': '≥', '\\geqslant': '≥', '\\neq': '≠', '\\ne': '≠'
+                    };
                     tokens.push({
                         latex: command,
-                        display: command === '\\cdot' || command === '\\times' ? '*' :
-                            command === '\\pi' ? 'π' : command.replace(/^\\/, '')
+                        display: commandDisplay[command] || command.replace(/^\\/, '')
                     });
                     i += command.length - 1;
                     continue;
@@ -713,12 +724,19 @@
 
     const createLineContent = (panel, line) => {
         const container = document.createElement('span');
-        container.style.display = 'inline-flex';
-        container.style.flexWrap = 'wrap';
-        container.style.alignItems = 'baseline';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.alignItems = 'flex-start';
         container.style.gap = '4px';
-        container.style.fontSize = '20px';
-        container.style.fontFamily = 'serif';
+        container.style.fontFamily = 'inherit';
+
+        const displayRow = document.createElement('span');
+        displayRow.style.display = 'inline-flex';
+        displayRow.style.flexWrap = 'wrap';
+        displayRow.style.alignItems = 'center';
+        displayRow.style.gap = '4px';
+        displayRow.style.minHeight = '28px';
+        container.appendChild(displayRow);
 
         const parts = line.displayParts.length ? line.displayParts : [{
             type: line.math ? 'math' : 'text',
@@ -728,19 +746,45 @@
 
         parts.forEach(part => {
             if (part.type === 'math' && part.latex) {
+                const rendered = document.createElement('span');
+                rendered.textContent = '\\(' + part.latex + '\\)';
+                rendered.style.display = 'inline-block';
+                rendered.style.fontSize = '20px';
+                rendered.style.lineHeight = '1.25';
+                rendered.setAttribute('aria-label', part.latex);
+                displayRow.appendChild(rendered);
+
                 const tokenSelector = createTokenSelector(panel, part.latex);
                 if (tokenSelector) {
                     tokenSelector.style.marginLeft = '0';
-                    container.appendChild(tokenSelector);
+                    const selectionBox = document.createElement('span');
+                    selectionBox.dataset.tokenSelectionBox = '1';
+                    selectionBox.style.display = 'flex';
+                    selectionBox.style.flexWrap = 'wrap';
+                    selectionBox.style.alignItems = 'center';
+                    selectionBox.style.gap = '4px';
+                    selectionBox.style.padding = '2px 6px';
+                    selectionBox.style.border = '1px solid #d9e2ec';
+                    selectionBox.style.borderRadius = '4px';
+                    selectionBox.style.background = '#f8fafc';
+
+                    const hint = document.createElement('span');
+                    hint.textContent = config.selectpart || 'Select part:';
+                    hint.style.fontFamily = 'sans-serif';
+                    hint.style.fontSize = '12px';
+                    hint.style.color = '#52606d';
+                    selectionBox.appendChild(hint);
+                    selectionBox.appendChild(tokenSelector);
+                    container.appendChild(selectionBox);
                 }
                 return;
             }
 
             const text = document.createElement('span');
-            text.textContent = part.text || '';
+            text.textContent = String(part.text || '').replace(/[$¥￥]/g, '');
             text.style.whiteSpace = 'pre-wrap';
             text.style.fontFamily = 'inherit';
-            container.appendChild(text);
+            displayRow.appendChild(text);
         });
 
         return container;
@@ -759,6 +803,15 @@
         panel._rawTextarea.value = rawLatex || '';
         panel._options.innerHTML = '';
         panel._tokenRows = [];
+        panel._selectionBoxes = [];
+
+        const showSelectionBoxes = selectedIndex => {
+            panel._selectionBoxes.forEach((boxes, index) => {
+                boxes.forEach(box => {
+                    box.style.display = index === selectedIndex ? 'flex' : 'none';
+                });
+            });
+        };
 
         resultLines.forEach((line, index) => {
             const isDefault = index === defaultIndex;
@@ -769,7 +822,7 @@
             wrapper.style.gridTemplateColumns = 'auto 1fr';
             wrapper.style.columnGap = '8px';
             wrapper.style.alignItems = 'start';
-            wrapper.style.padding = '6px';
+            wrapper.style.padding = '5px 6px';
             wrapper.style.border = isDefault ? '1px solid #8ab4f8' : '1px solid #e2e2e2';
             wrapper.style.background = isDefault ? '#f3f8ff' : '#fff';
             wrapper.style.cursor = 'pointer';
@@ -793,9 +846,14 @@
             prefix.style.display = 'block';
             prefix.style.fontSize = '12px';
             prefix.style.color = '#555';
-            prefix.style.marginBottom = '4px';
+            prefix.style.marginBottom = '2px';
 
             const lineContent = createLineContent(panel, line);
+            const selectionBoxes = Array.from(lineContent.querySelectorAll('[data-token-selection-box]'));
+            selectionBoxes.forEach(box => {
+                box.style.display = isDefault ? 'flex' : 'none';
+            });
+            panel._selectionBoxes.push(selectionBoxes);
 
             body.appendChild(prefix);
             body.appendChild(lineContent);
@@ -809,12 +867,14 @@
                 }
                 input.checked = true;
                 clearTokenSelections(panel);
+                showSelectionBoxes(index);
                 panel._stackTextarea.value = line.stack || line.math || '';
             });
 
             input.addEventListener('change', () => {
                 if (input.checked) {
                     clearTokenSelections(panel);
+                    showSelectionBoxes(index);
                     panel._stackTextarea.value = line.stack || line.math || '';
                 }
             });

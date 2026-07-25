@@ -46,6 +46,7 @@ final class hook_callbacks {
             'recognizefailed' => get_string('recognizefailed', 'local_stackinputhelper'),
             'recognizedresults' => get_string('recognizedresults', 'local_stackinputhelper'),
             'selectanswer' => get_string('selectanswer', 'local_stackinputhelper'),
+            'selectpart' => get_string('selectpart', 'local_stackinputhelper'),
             'recommendedanswer' => get_string('recommendedanswer', 'local_stackinputhelper'),
             'stackpreview' => get_string('stackpreview', 'local_stackinputhelper'),
             'insertanswer' => get_string('insertanswer', 'local_stackinputhelper'),
@@ -61,7 +62,7 @@ final class hook_callbacks {
         ];
 
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $version = '20260607_mixed_text_5';
+        $version = '20260715_compact_math_2';
 
         $html = '
 <script>

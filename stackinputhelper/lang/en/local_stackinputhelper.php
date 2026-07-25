@@ -41,6 +41,7 @@ $string['takephoto'] = 'Take photo';
 $string['usethisphoto'] = 'Use this photo';
 $string['recognizedresults'] = 'Recognized results';
 $string['selectanswer'] = 'Select the answer to insert into STACK:';
+$string['selectpart'] = 'Select part:';
 $string['recommendedanswer'] = 'Recommended answer';
 $string['stackpreview'] = 'STACK input preview:';
 $string['insertanswer'] = 'Insert answer';

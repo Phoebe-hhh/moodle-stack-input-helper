@@ -67,12 +67,7 @@ final class mathpix_client {
 
         $rawlatex = self::extract_latex($data);
         $lines = self::build_lines($rawlatex);
-        $stack = '';
-        foreach ($lines as $line) {
-            if ($line['stack'] !== '') {
-                $stack = $line['stack'];
-            }
-        }
+        $stack = self::recommended_stack($lines);
         if ($stack === '') {
             $stack = stack_converter::normalize_selection($rawlatex);
         }
@@ -100,11 +95,12 @@ final class mathpix_client {
 
         $multiline = self::extract_multiline_body($normalized);
         if ($multiline !== null) {
-            $parts = preg_split('/(?:\n+|\\\\\\\\+)/', $multiline);
-        } else if (preg_match('/\\\\begin\{(?:cases|pmatrix|bmatrix|matrix)\}/', $normalized)) {
+            $parts = preg_split('/(?:\n+|\\\\\\\\)/', $multiline);
+        } else if (preg_match('/\\\\begin\{(?:cases|pmatrix|bmatrix|matrix)\}/', $normalized)
+                || preg_match('/\\\\left\s*\\\\?[({\[]?\s*\\\\begin\{array\}/', $normalized)) {
             $parts = [$normalized];
         } else {
-            $parts = preg_split('/(?:\n+|\\\\\\\\+)/', $normalized);
+            $parts = preg_split('/(?:\n+|\\\\\\\\)/', $normalized);
         }
 
         $lines = [];
@@ -124,7 +120,54 @@ final class mathpix_client {
             ];
         }
 
+        $summary = self::assignment_summary($lines);
+        if ($summary !== null) {
+            $lines[] = $summary;
+        }
+
         return $lines;
+    }
+
+    private static function recommended_stack(array $lines): string {
+        for ($i = count($lines) - 1; $i >= 0; $i--) {
+            if ($lines[$i]['stack'] !== '') {
+                return $lines[$i]['stack'];
+            }
+        }
+        return '';
+    }
+
+    private static function assignment_summary(array $lines): ?array {
+        $assignments = [];
+        $variables = [];
+        for ($i = count($lines) - 1; $i >= 0; $i--) {
+            $stack = trim($lines[$i]['stack'] ?? '');
+            if (!preg_match('/^([a-zA-Z])=([^=,]+)$/', $stack, $match)) {
+                if ($assignments) {
+                    break;
+                }
+                continue;
+            }
+            if (isset($variables[$match[1]])) {
+                break;
+            }
+            $variables[$match[1]] = true;
+            $assignments[] = $match[1] . '=' . $match[2];
+        }
+        if (count($assignments) < 2) {
+            return null;
+        }
+
+        $stack = '[' . implode(',', $assignments) . ']';
+        $latex = implode(',\\ ', $assignments);
+        return [
+            'latex' => $latex,
+            'display' => $latex,
+            'display_parts' => [['type' => 'math', 'latex' => $latex]],
+            'math' => $latex,
+            'stack' => $stack,
+            'synthetic' => true,
+        ];
     }
 
     private static function extract_multiline_body(string $latex): ?string {
@@ -139,7 +182,11 @@ final class mathpix_client {
         $line = trim($line);
         $line = preg_replace('/^\\\\begin\{(?:aligned|gathered|split|align|array)\*?\}(?:\{[^}]*\})?/', '', $line);
         $line = preg_replace('/\\\\end\{(?:aligned|gathered|split|align|array)\*?\}$/', '', $line);
-        $line = str_replace('&', '', $line);
+        if (!preg_match('/\\\\begin\{(?:cases|array|pmatrix|bmatrix|matrix)\}/', $line)) {
+            $line = str_replace('&', '', $line);
+        }
+        $line = str_replace(['\\therefore', '\\because'], '', $line);
+        $line = preg_replace('/^\s*=\s*/', '', $line);
         $line = preg_replace('/^\s*(?:\d+[\.\)]|[-*])\s*/', '', $line);
         $line = preg_replace('/^\$\s*/', '', $line);
         $line = preg_replace('/\s*\$$/', '', $line);
@@ -148,12 +195,21 @@ final class mathpix_client {
         $line = preg_replace('/^\\\\\[\s*/', '', $line);
         $line = preg_replace('/\s*\\\\\]$/', '', $line);
         $line = preg_replace('/(?<!\\\\)\btext\s*\{/u', '\\text{', $line);
+
+        // In Japanese handwriting Mathpix can read the compact sequence
+        // "x=-" as the katakana-looking "メニー". Restrict the repair to
+        // answer-labelled lines so ordinary Japanese prose is untouched.
+        if (preg_match('/(?:答え|解答)/u', $line)) {
+            $line = preg_replace('/[xｘメ]\s*[ニ二]\s*[ー−-]\s*(\d+(?:\.\d+)?)/u', 'x=-$1', $line);
+            $line = preg_replace('/たす\s*$/u', 'です', $line);
+        }
         return trim($line);
     }
 
     private static function display_latex(string $line): string {
         $line = preg_replace('/\\\\text\s*\{\s*([^{}]*?)\s*\}/u', '$1', $line);
         $line = preg_replace('/(?<!\\\\)\btext\s*\{\s*([^{}]*?)\s*\}/u', '$1', $line);
+        $line = preg_replace('/[$¥￥]/u', '', $line);
         $line = str_replace(['\\,', '\\;', '\\:', '\\!'], '', $line);
         return trim($line);
     }
