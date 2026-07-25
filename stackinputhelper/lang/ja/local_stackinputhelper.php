@@ -34,6 +34,7 @@ $string['takephoto'] = '写真を撮る';
 $string['usethisphoto'] = 'この写真を使用';
 $string['recognizedresults'] = '認識結果';
 $string['selectanswer'] = 'STACKに入力する答案を選択してください:';
+$string['selectpart'] = '部分選択:';
 $string['recommendedanswer'] = '推奨答案';
 $string['stackpreview'] = 'STACK入力プレビュー:';
 $string['insertanswer'] = '答案を挿入';
