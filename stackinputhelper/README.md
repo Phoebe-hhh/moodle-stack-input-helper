@@ -114,6 +114,7 @@ For the ILAS Nagoya University STACK testing environment:
 - Credentials are not exposed to browser JavaScript.
 - Mobile upload sessions are temporary and expire automatically.
 - Uploaded image files are not permanently stored by this plugin.
+- Browser-provided filenames and MIME types are not trusted. Moodle verifies the actual file type, dimensions, and decodability before sending an image to Mathpix.
 
 Site administrators should confirm that Mathpix use complies with institutional privacy and data handling policies.
 
@@ -137,10 +138,27 @@ The browser script currently loads:
 amd/build/main.min.js
 ```
 
+## Creating a Release
+
+Update `version.php` and `CHANGELOG.md`, merge the change into the release branch, and push a matching version tag:
+
+```bash
+git tag v0.2.9-alpha
+git push origin v0.2.9-alpha
+```
+
+The GitHub Actions workflow then checks PHP syntax and creates a GitHub Release containing:
+
+- a Moodle-installable ZIP whose root folder is `stackinputhelper/`;
+- a changelog generated from commits since the previous version tag;
+- GitHub-generated release notes with merged pull requests and contributors.
+
+The workflow refuses to publish if the tag does not match `$plugin->release` in `version.php`.
+
 ## Version
 
 Current version:
 
 ```text
-0.2.8-alpha
+0.2.9-alpha
 ```

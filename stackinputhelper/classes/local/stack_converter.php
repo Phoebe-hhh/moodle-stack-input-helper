@@ -49,18 +49,29 @@ final class stack_converter {
         $s = preg_replace('/\\\\right(?![a-zA-Z])/', '', $s);
         $s = self::normalize_absolute($s);
         $s = preg_replace(
-            '/([A-Za-z0-9)\]])\s*(?=\\\\(?:sqrt|sin|cos|tan|arcsin|arccos|arctan|log|ln)\b)/',
+            '/([A-Za-z0-9)\]])\s*(?=\\\\(?:sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|arcsin|arccos|arctan|log|ln)\b)/',
             '$1*',
             $s
         );
 
-        $commands = ['frac', 'sqrt', 'sin', 'cos', 'tan', 'arcsin', 'arccos', 'arctan',
-            'log', 'ln', 'lim', 'partial', 'int', 'sum', 'prod', 'vec'];
+        $commands = ['frac', 'sqrt', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh',
+            'cosh', 'tanh', 'arcsin', 'arccos', 'arctan', 'log', 'ln', 'lim', 'partial',
+            'int', 'sum', 'prod', 'vec', 'hat', 'widehat', 'bar', 'overline', 'dot', 'ddot'];
         foreach ($commands as $command) {
             $s = preg_replace('/\\\\\s*' . preg_quote($command, '/') . '/', '\\' . $command, $s);
         }
 
+        // Accents are presentation metadata in handwritten/OCR input. STACK
+        // has no generally safe scalar representation for them, so retain the
+        // underlying expression instead of emitting invalid hat*(...) tokens.
+        $s = self::normalize_accents($s);
+
         $greekcommands = '(?:alpha|beta|gamma|delta|epsilon|theta|lambda|mu|sigma|rho|tau|phi|psi|omega)';
+        $s = preg_replace(
+            '/([A-Za-z0-9)\]])\s*(?=\\\\' . $greekcommands . '\b)/',
+            '$1*',
+            $s
+        );
         $s = preg_replace(
             '/(\\\\' . $greekcommands . ')\s*(?=\\\\' . $greekcommands . '\b)/',
             '$1*',
@@ -77,7 +88,7 @@ final class stack_converter {
 
         $s = preg_replace('/[a-zA-Z]\s*=\s*\\\\pm\s*([A-Za-z0-9%.\[\]\^()+\-*\/]+)/', '[$1,-$1]', $s);
         $s = preg_replace('/[a-zA-Z]\s*=\s*±\s*([A-Za-z0-9%.\[\]\^()+\-*\/]+)/u', '[$1,-$1]', $s);
-        $s = preg_replace('/^[a-zA-Z]\s*=\s*([^,=]+)\s*,\s*([^,=]+)$/', '[$1,$2]', $s);
+        $s = preg_replace('/^[a-zA-Z]\s*=\s*([^,=]+)\s*(?<!\\\\),\s*([^,=]+)$/', '[$1,$2]', $s);
 
         $s = preg_replace('/([a-zA-Z])\s*\\\\in\s*\\\\mathbb\s*\{\s*([A-Z])\s*\}/', '__ALL__$1__IN__$2__', $s);
         $s = preg_replace('/([a-zA-Z])\s*\\\\in\s*\[\s*([^,\]]+)\s*,\s*([^\]]+)\s*\]/', '__INTERVAL__$1__$2__$3__', $s);
@@ -105,11 +116,13 @@ final class stack_converter {
         $s = preg_replace('/\\\\log\s*_\s*([a-zA-Z0-9]+)\s*\{([^{}]+)\}/', '(log($2)/log($1))', $s);
         $s = preg_replace('/\\\\log\s*_\s*([a-zA-Z0-9]+)\s*([a-zA-Z0-9]+)/', '(log($2)/log($1))', $s);
 
+        $s = preg_replace('/\\\\log\\s*_\\s*([a-zA-Z0-9]+)\\s*\\(([^()]*)\\)/', '(log($2)/log($1))', $s);
+
         // Capture the differential before function normalization can consume
         // a compact tail such as "\\sin x\\,dx" as one function argument.
         $s = self::normalize_integral($s);
 
-        foreach (['sin', 'cos', 'tan', 'log', 'ln'] as $fn) {
+        foreach (['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'log', 'ln'] as $fn) {
             $s = preg_replace('/\\\\' . $fn . '\s*\{([^{}]+)\}/', $fn . '($1)', $s);
             $s = preg_replace('/\\\\' . $fn . '\s+([a-zA-Z0-9]+)/', $fn . '($1)', $s);
         }
@@ -121,10 +134,22 @@ final class stack_converter {
         $s = self::normalize_limit($s);
         $s = str_replace(['\\rightarrow', '\\longrightarrow', '\\to'], '->', $s);
 
+        $s = preg_replace('/\\\\operatorname\s*\{\s*det\s*\}\s*\(([^()]*)\)/', 'determinant($1)', $s);
+        $s = preg_replace('/\\\\det\s*\(([^()]*)\)/', 'determinant($1)', $s);
         $s = preg_replace('/\\\\operatorname\s*\{\s*det\s*\}\s*([a-zA-Z])\b/', 'determinant($1)', $s);
         $s = preg_replace('/\\\\det\s*([a-zA-Z])\b/', 'determinant($1)', $s);
 
-        $s = preg_replace('/\b([a-zA-Z])_\{\s*([a-zA-Z0-9]+)\s*\}/', '$1[$2]', $s);
+        $textlabels = [];
+        $s = preg_replace_callback(
+            '/([a-zA-Z])_\{\s*\\\\(?:text|mathrm)\s*\{\s*([^{}]+?)\s*\}\s*\}/',
+            static function($match) use (&$textlabels) {
+                $token = '§' . count($textlabels) . '§';
+                $textlabels[$token] = trim($match[2]);
+                return $match[1] . '[' . $token . ']';
+            },
+            $s
+        );
+        $s = preg_replace('/([a-zA-Z])_\{\s*([^{}]+?)\s*\}/', '$1[$2]', $s);
         $s = preg_replace('/_\{([^{}]+)\}/', '_$1', $s);
 
         $s = preg_replace('/\\\\text\s*\{\s*([^{}]+?)\s*\}/', '$1', $s);
@@ -147,6 +172,9 @@ final class stack_converter {
             $s
         );
         $s = self::normalize_variable_products($s);
+        if ($textlabels) {
+            $s = strtr($s, $textlabels);
+        }
 
         $s = preg_replace('/\\\\pi\b/', '%pi', $s);
         $s = str_replace('π', '%pi', $s);
@@ -180,6 +208,10 @@ final class stack_converter {
         if (preg_match('/^\\\\text\s*\{\s*([ei])\s*\}$/u', $s, $match)) {
             return $match[1];
         }
+        if (preg_match('/^\\\\(?:text|mathrm)\s*\{\s*([^{}]+?)\s*\}$/u', $s, $match)
+                && preg_match('/[=+\-*\/^]|\d|\\\\(?:frac|sqrt|sin|cos|tan|log|ln)\b/u', $match[1])) {
+            return trim($match[1]);
+        }
 
         $s = str_replace(['−', '–', '—', '＝'], ['-', '-', '-', '='], $s);
         $s = str_replace(['\\quad', '\\qquad', '\\therefore', '\\because'], '', $s);
@@ -187,13 +219,17 @@ final class stack_converter {
             $s = preg_replace('/[xｘメ]\s*[ニ二]\s*[ー-]\s*(\d+(?:\.\d+)?)/u', 'x=-$1', $s);
             $s = preg_replace('/たす\s*$/u', 'です', $s);
         }
-        $hasprose = preg_match('/(?:\\\\text|(?<!\\\\)\btext|\\\\mathrm)\s*\{/u', $s) === 1
+        $prosecheck = preg_replace(
+            '/_\{\s*\\\\(?:text|mathrm)\s*\{\s*[^{}]*?\s*\}\s*\}/u',
+            '_label',
+            $s
+        );
+        $hasprose = preg_match('/(?:\\\\text|(?<!\\\\)\btext|\\\\mathrm)\s*\{/u', $prosecheck) === 1
             || preg_match('/[\x{3040}-\x{30ff}\x{3400}-\x{9fff}]/u', $s) === 1
             || preg_match('/\b(?:answer|solution|therefore|hence|thus|finally)\b/iu', $s) === 1;
-        $s = preg_replace('/\\\\text\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
-        $s = preg_replace('/(?<!\\\\)\btext\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
-        $s = preg_replace('/\\\\mathrm\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
-        $s = preg_replace('/\s+/', ' ', $s);
+
+        $hasprose = $hasprose
+            || preg_match('/\b(?:first|next)\b/iu', $s) === 1;
 
         // Mathpix uses dollar signs as inline-math delimiters. A handwritten
         // mixed text/formula line can contain only one of the pair, and a
@@ -208,6 +244,11 @@ final class stack_converter {
         if (!$hasprose) {
             return trim($s);
         }
+
+        $s = preg_replace('/\\\\text\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/(?<!\\\\)\btext\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/\\\\mathrm\s*\{\s*[^{}]*?\s*\}/u', ' ', $s);
+        $s = preg_replace('/\s+/', ' ', $s);
 
         if (preg_match('/\$(.+?)\$/u', $s, $match)) {
             return trim($match[1]);
@@ -398,9 +439,73 @@ final class stack_converter {
 
     private static function normalize_absolute(string $input): string {
         $output = str_replace(['\\lvert', '\\rvert', '\\vert'], '|', $input);
-        while (preg_match('/\|([^|]+)\|/', $output)) {
-            $output = preg_replace('/\|([^|]+)\|/', 'abs($1)', $output);
+        if (strpos($output, '|') === false) {
+            return $output;
         }
+
+        $normalized = '';
+        $depth = 0;
+        $length = strlen($output);
+        for ($index = 0; $index < $length; $index++) {
+            if ($output[$index] !== '|') {
+                $normalized .= $output[$index];
+                continue;
+            }
+
+            $previous = '';
+            for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
+                if (!ctype_space($output[$cursor])) {
+                    $previous = $output[$cursor];
+                    break;
+                }
+            }
+            $opens = $depth === 0 || $previous === '' || strpos('+-*/^=<(,[', $previous) !== false;
+            if ($opens) {
+                $normalized .= 'abs(';
+                $depth++;
+            } else {
+                $normalized .= ')';
+                $depth--;
+            }
+        }
+
+        return $depth === 0 ? $normalized : $output;
+    }
+
+    private static function normalize_accents(string $input): string {
+        $output = $input;
+        $offset = 0;
+        while (preg_match(
+            '/\\\\(?:hat|widehat|bar|overline|dot|ddot)\s*\{/',
+            $output,
+            $match,
+            PREG_OFFSET_CAPTURE,
+            $offset
+        )) {
+            $start = $match[0][1];
+            $open = $start + strlen($match[0][0]) - 1;
+            $depth = 1;
+            $cursor = $open + 1;
+            $length = strlen($output);
+            while ($cursor < $length && $depth > 0) {
+                if ($output[$cursor] === '{') {
+                    $depth++;
+                } else if ($output[$cursor] === '}') {
+                    $depth--;
+                }
+                $cursor++;
+            }
+
+            if ($depth !== 0) {
+                $offset = $open + 1;
+                continue;
+            }
+
+            $inner = substr($output, $open + 1, $cursor - $open - 2);
+            $output = substr($output, 0, $start) . $inner . substr($output, $cursor);
+            $offset = $start;
+        }
+
         return $output;
     }
 
@@ -462,20 +567,21 @@ final class stack_converter {
 
     private static function normalize_integral(string $input): string {
         $output = preg_replace_callback(
-            '/\\\\int\s*_\s*\{\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\))\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
+            '/\\\\int\s*_\s*\{\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\)|((?:\\\\[A-Za-z]+|[A-Za-z0-9%.+\-]+)))\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
             static function($m) {
-                $upper = $m[2] ?: $m[3];
-                $integrand = ltrim(trim($m[4]), '*');
-                return 'int(' . $integrand . ',' . trim($m[5]) . ',' . trim($m[1]) . ',' . trim($upper) . ')';
+                $upper = $m[2] !== '' ? $m[2] : ($m[3] !== '' ? $m[3] : $m[4]);
+                $integrand = ltrim(trim($m[5]), '*');
+                return 'int(' . $integrand . ',' . trim($m[6]) . ',' . trim($m[1]) . ',' . trim($upper) . ')';
             },
             $input
         );
 
         $output = preg_replace_callback(
-            '/\\\\int\s*_\s*([A-Za-z0-9.+-]+)\s*\^\s*([A-Za-z0-9.+-]+)\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
+            '/\\\\int\s*_\s*((?:\\\\[A-Za-z]+|[A-Za-z0-9%.+\-]+))\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\)|((?:\\\\[A-Za-z]+|[A-Za-z0-9%.+\-]+)))\s*(.+?)\s*(?:\\\\[,;:!]\s*)*d\s*([a-zA-Z])\s*$/',
             static function($m) {
-                $integrand = ltrim(trim($m[3]), '*');
-                return 'int(' . $integrand . ',' . trim($m[4]) . ',' . trim($m[1]) . ',' . trim($m[2]) . ')';
+                $upper = $m[2] !== '' ? $m[2] : ($m[3] !== '' ? $m[3] : $m[4]);
+                $integrand = ltrim(trim($m[5]), '*');
+                return 'int(' . $integrand . ',' . trim($m[6]) . ',' . trim($m[1]) . ',' . trim($upper) . ')';
             },
             $output
         );
@@ -491,11 +597,11 @@ final class stack_converter {
 
     private static function normalize_sum_product(string $input): string {
         return preg_replace_callback(
-            '/\\\\(sum|prod|pi)\s*_\s*\{\s*([a-zA-Z])\s*=\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\))\s*(.+)$/',
+            '/\\\\(sum|prod|pi)\s*_\s*\{\s*([a-zA-Z])\s*=\s*([^{}]+?)\s*\}\s*\^\s*(?:\{\s*([^{}]+?)\s*\}|\(\s*([^()]+?)\s*\)|((?:inf|minf|[A-Za-z]|[+\-]?\d+(?:\.\d+)?)))\s*(.+)$/',
             static function($m) {
                 $name = $m[1] === 'sum' ? 'sum' : 'product';
-                $upper = $m[4] ?: $m[5];
-                return $name . '(' . trim($m[6]) . ',' . trim($m[2]) . ',' . trim($m[3]) . ',' . trim($upper) . ')';
+                $upper = $m[4] !== '' ? $m[4] : ($m[5] !== '' ? $m[5] : $m[6]);
+                return $name . '(' . trim($m[7]) . ',' . trim($m[2]) . ',' . trim($m[3]) . ',' . trim($upper) . ')';
             },
             $input
         );
@@ -525,7 +631,7 @@ final class stack_converter {
         $output = $input;
         $offset = 0;
         while (preg_match(
-            '/\\\\(sin|cos|tan|log|ln)\s*\^\s*(?:\(\s*([^()]+)\s*\)|\{\s*([^{}]+)\s*\}|([+-]?\d+))\s*/',
+            '/\\\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|log|ln)\s*\^\s*(?:\(\s*([^()]+)\s*\)|\{\s*([^{}]+)\s*\}|([+-]?\d+))\s*/',
             $output,
             $match,
             PREG_OFFSET_CAPTURE,
@@ -577,9 +683,10 @@ final class stack_converter {
     private static function normalize_variable_products(string $input): string {
         $identifiers = ['mu', 'sigma', 'alpha', 'beta', 'gamma', 'delta', 'theta', 'lambda',
             'omega', 'phi', 'psi', 'rho', 'tau', 'epsilon', 'inf', 'minf', 'and', 'not',
-            'then', 'else', 'in', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'ln',
-            'sqrt', 'exp', 'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix',
-            'determinant', 'binomial', 'pi'];
+            'then', 'else', 'in', 'min', 'max', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+            'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan', 'log', 'ln', 'sqrt', 'exp',
+            'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix', 'determinant',
+            'binomial', 'pi'];
 
         return preg_replace_callback('/[A-Za-z]{2,}/', static function($m) use ($identifiers) {
             return in_array(strtolower($m[0]), $identifiers, true)
@@ -592,6 +699,7 @@ final class stack_converter {
         $s = $input;
         foreach (['arcsin' => 'asin', 'arccos' => 'acos', 'arctan' => 'atan'] as $latex => $stack) {
             $s = preg_replace('/\\\\' . $latex . '\s*\{([^{}]+)\}/', $stack . '($1)', $s);
+            $s = preg_replace('/\\\\' . $latex . '\s*\(([^()]*)\)/', $stack . '($1)', $s);
             $s = preg_replace('/\\\\' . $latex . '\s+([a-zA-Z0-9]+)/', $stack . '($1)', $s);
         }
         foreach (['sin' => 'asin', 'cos' => 'acos', 'tan' => 'atan'] as $latex => $stack) {
@@ -624,7 +732,8 @@ final class stack_converter {
     }
 
     private static function protect_functions(string $input): string {
-        $functions = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'log', 'ln', 'sqrt', 'exp',
+        $functions = ['f', 'g', 'h', 'min', 'max', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc',
+            'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan', 'log', 'ln', 'sqrt', 'exp',
             'abs', 'limit', 'diff', 'int', 'sum', 'product', 'matrix', 'determinant', 'binomial'];
 
         return preg_replace_callback('/([a-zA-Z]+)\(/', static function($m) use ($functions) {
@@ -641,15 +750,15 @@ final class stack_converter {
         $s = preg_replace('/\(([a-zA-Z])\)\/\(([^()]+)\)/', '$1/($2)', $s);
         $s = preg_replace('/\((\d+)\)\/\(([a-zA-Z])\^(\d+)\)/', '$1/$2^$3', $s);
         $s = preg_replace('/\(([^()]+)\)\/\(([A-Za-z0-9%.\[\]]+)\)/', '($1)/$2', $s);
-        $s = preg_replace('/\((\d+)\)\/\((sqrt|sin|cos|tan|asin|acos|atan|log|ln|exp)\(([^()]+)\)\)/', '$1/$2($3)', $s);
-        $s = preg_replace('/\((sqrt|sin|cos|tan|asin|acos|atan|log|ln|exp|abs)\(([^()]+)\)\)\/\(([a-zA-Z0-9%]+)\)/', '$1($2)/$3', $s);
+        $s = preg_replace('/\((\d+)\)\/\((sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|asin|acos|atan|log|ln|exp)\(([^()]+)\)\)/', '$1/$2($3)', $s);
+        $s = preg_replace('/\((sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|asin|acos|atan|log|ln|exp|abs)\(([^()]+)\)\)\/\(([a-zA-Z0-9%]+)\)/', '$1($2)/$3', $s);
         $s = preg_replace('/\((\d+)\)\/\(([^()]+)\)/', '$1/($2)', $s);
         $s = preg_replace('/\^\((\d+)\)/', '^$1', $s);
         $s = preg_replace('/\^\(([a-zA-Z])\)/', '^$1', $s);
         $s = preg_replace('/%e\^\(([a-zA-Z0-9]+)\)/', '%e^$1', $s);
         $s = preg_replace('/\(([a-zA-Z])\)\^\(1\/(\d+)\)/', '$1^(1/$2)', $s);
-        $s = preg_replace('/\b(sin|cos|tan|asin|acos|atan|log|ln|sqrt|exp)\(\(([^()]+)\)\/\(([^()]+)\)\)/', '$1(($2)/($3))', $s);
-        $s = preg_replace('/^\((sqrt|sin|cos|tan|asin|acos|atan|log|ln|exp)\(([^()]+)\)\)\//', '$1($2)/', $s);
+        $s = preg_replace('/\b(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|asin|acos|atan|log|ln|sqrt|exp)\(\(([^()]+)\)\/\(([^()]+)\)\)/', '$1(($2)/($3))', $s);
+        $s = preg_replace('/^\((sqrt|sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|asin|acos|atan|log|ln|exp)\(([^()]+)\)\)\//', '$1($2)/', $s);
         $s = preg_replace('/^\(log\(([^()]+)\)\/log\(([^()]+)\)\)$/', 'log($1)/log($2)', $s);
         $s = self::expand_chained_inequality($s);
         $s = preg_replace('/^([A-Za-z0-9%.\[\]\^()+\-*\/]+)(?:#|!=)([A-Za-z0-9%.\[\]\^()+\-*\/]+)$/', 'not($1=$2)', $s);

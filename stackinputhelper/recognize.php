@@ -13,25 +13,12 @@ try {
         throw new moodle_exception('pluginnotenabled', 'local_stackinputhelper');
     }
 
-    if (empty($_FILES['image']) || !is_uploaded_file($_FILES['image']['tmp_name'])) {
-        throw new moodle_exception('invaliduploadedfile', 'local_stackinputhelper');
-    }
-
-    $maxfilesize = max(1, (int)get_config('local_stackinputhelper', 'maxfilesize')) * 1024 * 1024;
-    if ((int)$_FILES['image']['size'] > $maxfilesize) {
-        throw new moodle_exception('filetoolarge', 'local_stackinputhelper');
-    }
-
-    $mimetype = clean_param($_FILES['image']['type'] ?? '', PARAM_RAW_TRIMMED);
-    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!in_array($mimetype, $allowed, true)) {
-        throw new moodle_exception('invalidfiletype', 'local_stackinputhelper');
-    }
+    $upload = \local_stackinputhelper\local\image_upload_validator::validate($_FILES['image'] ?? []);
 
     $result = \local_stackinputhelper\local\mathpix_client::recognize(
-        $_FILES['image']['tmp_name'],
-        clean_param($_FILES['image']['name'] ?? 'upload.png', PARAM_FILE),
-        $mimetype
+        $upload['filepath'],
+        $upload['filename'],
+        $upload['mimetype']
     );
 
     echo json_encode([

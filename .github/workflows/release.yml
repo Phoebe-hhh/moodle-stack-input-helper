@@ -1,0 +1,55 @@
+name: Publish Moodle plugin release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate PHP syntax
+        run: find stackinputhelper -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Build Moodle plugin package and changelog
+        run: ./scripts/build-release.sh "$GITHUB_REF_NAME" "$GITHUB_SHA" dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip_asset="dist/stackinputhelper-${GITHUB_REF_NAME}.zip"
+          changelog_asset="dist/CHANGELOG-${GITHUB_REF_NAME}.md"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$zip_asset" "$changelog_asset" --clobber
+            exit 0
+          fi
+
+          release_flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            release_flags+=(--prerelease)
+          else
+            release_flags+=(--latest)
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            "$zip_asset#Moodle plugin ZIP" \
+            "$changelog_asset#Version changelog" \
+            --verify-tag \
+            --generate-notes \
+            --title "STACK Input Helper ${GITHUB_REF_NAME}" \
+            "${release_flags[@]}"

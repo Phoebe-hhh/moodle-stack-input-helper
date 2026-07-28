@@ -189,12 +189,12 @@ final class mathpix_client {
         $line = trim($line);
         $line = preg_replace('/^\\\\begin\{(?:aligned|gathered|split|align|array)\*?\}(?:\{[^}]*\})?/', '', $line);
         $line = preg_replace('/\\\\end\{(?:aligned|gathered|split|align|array)\*?\}$/', '', $line);
-        if (!preg_match('/\\\\begin\{(?:cases|array|pmatrix|bmatrix|matrix)\}/', $line)) {
+        if (!preg_match('/\\\\begin\{(?:cases|array|pmatrix|bmatrix|matrix|vmatrix)\}/', $line)) {
             $line = str_replace('&', '', $line);
         }
         $line = str_replace(['\\therefore', '\\because'], '', $line);
         $line = preg_replace('/^\s*=\s*/', '', $line);
-        $line = preg_replace('/^\s*(?:\d+[\.\)]|[-*])\s*/', '', $line);
+        $line = preg_replace('/^\s*(?:\d+[\.\)]\s*|[-*]\s+)/', '', $line);
         $line = preg_replace('/^\$\s*/', '', $line);
         $line = preg_replace('/\s*\$$/', '', $line);
         $line = preg_replace('/^\\\\\(\s*/', '', $line);
